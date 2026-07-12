@@ -10,13 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.2",
     "lodash": "^4.18.1",
     "lucide-react": "^1.21.0",
     "mammoth": "^1.12.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "recharts": "^3.9.0",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "recharts": "^3.9.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

@@ -1,31 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, CartesianGrid } from "recharts";
+import { useRaiseTicketData } from "./useRaiseTicketData.js";
 
 const BU_LIST = ["BU1", "BU2", "BU3", "BU4", "LAB HO", "LAB-DONAVET", "GC", "KHÁC"];
 const LEVELS = ["NV", "TP", "TPCC", "GD"];
 const TICKET_TYPES = ["Raise ticket", "Thông báo", "Phản hồi ticket"];
 const MONTHS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12"];
-
-const DEFAULT_POINTS = {
-  raise: { NV: 10, TP: 1, TPCC: 0.5, GD_subordinate: 0.1, GD_self: 20 },
-  announce: { GD: 5, TPCC: 1 },
-  feedback: { GD: 4, TPCC: 3, TP: 2, NV: 1 },
-  useful: { raiser: 100, announcer: 15, responder: 10 },
-  timePerPoint: 2
-};
-
-const DEFAULT_STAFF = [
-  { id: "GD01", name: "Nguyễn Văn A", level: "GD", bu: "BU1", reportsTo: null },
-  { id: "TPCC01", name: "Trần Thị B", level: "TPCC", bu: "BU1", reportsTo: "GD01" },
-  { id: "TPCC02", name: "Lê Văn C", level: "TPCC", bu: "BU2", reportsTo: "GD01" },
-  { id: "TP01", name: "Phạm Thị D", level: "TP", bu: "BU1", reportsTo: "TPCC01" },
-  { id: "TP02", name: "Hoàng Văn E", level: "TP", bu: "BU2", reportsTo: "TPCC02" },
-  { id: "NV01", name: "Ngô Thị F", level: "NV", bu: "BU1", reportsTo: "TP01" },
-  { id: "NV02", name: "Đỗ Văn G", level: "NV", bu: "BU1", reportsTo: "TP01" },
-  { id: "NV03", name: "Vũ Thị H", level: "NV", bu: "BU2", reportsTo: "TP02" },
-];
-
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 function genTicketCode(type, bu, date) {
   const prefix = type === "Raise ticket" ? "RT" : type === "Thông báo" ? "TB" : "PH";
@@ -70,23 +50,13 @@ function calcPoints(ticket, staff, pointConfig) {
 // ==================== MAIN APP ====================
 export default function RaiseTicketApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [staff, setStaff] = useState(() => {
-    try { const s = localStorage.getItem("rt_staff"); return s ? JSON.parse(s) : DEFAULT_STAFF; } catch { return DEFAULT_STAFF; }
-  });
-  const [tickets, setTickets] = useState(() => {
-    try { const t = localStorage.getItem("rt_tickets"); return t ? JSON.parse(t) : []; } catch { return []; }
-  });
-  const [pointConfig, setPointConfig] = useState(() => {
-    try { const p = localStorage.getItem("rt_points"); return p ? JSON.parse(p) : DEFAULT_POINTS; } catch { return DEFAULT_POINTS; }
-  });
-  const [emails, setEmails] = useState(() => {
-    try { const e = localStorage.getItem("rt_emails"); return e ? JSON.parse(e) : [""]; } catch { return [""]; }
-  });
-
-  useEffect(() => { try { localStorage.setItem("rt_staff", JSON.stringify(staff)); } catch {} }, [staff]);
-  useEffect(() => { try { localStorage.setItem("rt_tickets", JSON.stringify(tickets)); } catch {} }, [tickets]);
-  useEffect(() => { try { localStorage.setItem("rt_points", JSON.stringify(pointConfig)); } catch {} }, [pointConfig]);
-  useEffect(() => { try { localStorage.setItem("rt_emails", JSON.stringify(emails)); } catch {} }, [emails]);
+  const {
+    loading, error,
+    staff, tickets, pointConfig, emails,
+    addTicket, updateTicket, deleteTicket,
+    addStaff, removeStaff, updateReportsTo,
+    savePointConfig, saveEmails,
+  } = useRaiseTicketData();
 
   const allPoints = useMemo(() => {
     const map = {};
@@ -141,12 +111,18 @@ export default function RaiseTicketApp() {
       </nav>
 
       <main style={{ padding: "20px 24px", maxWidth: 1400, margin: "0 auto" }}>
-        {activeTab === "input" && <TicketInputCard staff={staff} tickets={tickets} setTickets={setTickets} pointConfig={pointConfig} />}
-        {activeTab === "admin" && <AdminCard staff={staff} setStaff={setStaff} pointConfig={pointConfig} setPointConfig={setPointConfig} emails={emails} setEmails={setEmails} tickets={tickets} setTickets={setTickets} />}
-        {activeTab === "guide_input" && <GuideInputCard />}
-        {activeTab === "guide_formula" && <GuideFormulaCard pointConfig={pointConfig} />}
-        {activeTab === "dashboard" && <DashboardCard tickets={tickets} staff={staff} pointConfig={pointConfig} allPoints={allPoints} />}
-        {activeTab === "tickets" && <TicketListCard tickets={tickets} staff={staff} setTickets={setTickets} pointConfig={pointConfig} />}
+        {loading && <div style={{ padding: 48, textAlign: "center", color: "#7a8a9e", fontSize: 14 }}>⏳ Đang tải dữ liệu từ Supabase...</div>}
+        {error && <div style={{ padding: "14px 18px", borderRadius: 10, background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.3)", color: "#ff8080", fontSize: 13 }}>⚠️ Lỗi kết nối Supabase: {error}<br /><span style={{ color: "#7a8a9e", fontSize: 12 }}>Kiểm tra .env.local và đã chạy migration chưa.</span></div>}
+        {!loading && !error && (
+          <>
+            {activeTab === "input" && <TicketInputCard staff={staff} tickets={tickets} addTicket={addTicket} />}
+            {activeTab === "admin" && <AdminCard staff={staff} pointConfig={pointConfig} emails={emails} addStaff={addStaff} removeStaff={removeStaff} updateReportsTo={updateReportsTo} savePointConfig={savePointConfig} saveEmails={saveEmails} />}
+            {activeTab === "guide_input" && <GuideInputCard />}
+            {activeTab === "guide_formula" && <GuideFormulaCard pointConfig={pointConfig} />}
+            {activeTab === "dashboard" && <DashboardCard tickets={tickets} staff={staff} pointConfig={pointConfig} allPoints={allPoints} />}
+            {activeTab === "tickets" && <TicketListCard tickets={tickets} updateTicket={updateTicket} deleteTicket={deleteTicket} />}
+          </>
+        )}
       </main>
     </div>
   );
@@ -178,9 +154,10 @@ const btnPrimary = { padding: "10px 24px", background: "linear-gradient(135deg, 
 const btnSecondary = { padding: "8px 16px", background: "rgba(0,212,170,0.1)", color: "#00d4aa", border: "1px solid rgba(0,212,170,0.3)", borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: "pointer" };
 
 // ==================== TICKET INPUT ====================
-function TicketInputCard({ staff, tickets, setTickets, pointConfig }) {
+function TicketInputCard({ staff, tickets, addTicket }) {
   const [form, setForm] = useState({ type: "Raise ticket", bu: "BU1", raiserId: "", what: "", why: "", where: "", when: "", how: "", note: "" });
   const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const filteredStaff = useMemo(() => {
     let list = staff.filter(s => s.bu === form.bu || s.level === "GD");
@@ -188,22 +165,29 @@ function TicketInputCard({ staff, tickets, setTickets, pointConfig }) {
     return list;
   }, [staff, form.bu, form.type]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.raiserId) { setMsg("⚠️ Vui lòng chọn người thực hiện"); return; }
     if (!form.what.trim()) { setMsg("⚠️ Vui lòng nhập nội dung WHAT"); return; }
     const raiser = staff.find(s => s.id === form.raiserId);
     const code = genTicketCode(form.type, form.bu, new Date().toISOString());
     const ticket = {
-      id: genId(), code: code + "-" + (tickets.length + 1).toString().padStart(3, "0"),
+      code: code + "-" + (tickets.length + 1).toString().padStart(3, "0"),
       type: form.type, bu: form.bu, raiserId: form.raiserId,
       raiserName: raiser?.name || "", raiserLevel: raiser?.level || "",
       what: form.what, why: form.why, where: form.where, when: form.when, how: form.how, note: form.note,
       date: new Date().toISOString(), useful: false, customPoints: null
     };
-    setTickets(prev => [ticket, ...prev]);
-    setForm({ type: "Raise ticket", bu: form.bu, raiserId: "", what: "", why: "", where: "", when: "", how: "", note: "" });
-    setMsg(`✅ Đã tạo ticket ${ticket.code} thành công!`);
-    setTimeout(() => setMsg(""), 3000);
+    setSaving(true);
+    try {
+      const saved = await addTicket(ticket);
+      setForm({ type: "Raise ticket", bu: form.bu, raiserId: "", what: "", why: "", where: "", when: "", how: "", note: "" });
+      setMsg(`✅ Đã tạo ticket ${saved.code} thành công!`);
+      setTimeout(() => setMsg(""), 3000);
+    } catch (e) {
+      setMsg("⚠️ Lỗi lưu ticket: " + (e.message || String(e)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -253,37 +237,45 @@ function TicketInputCard({ staff, tickets, setTickets, pointConfig }) {
         </div>
       </div>
 
-      <button style={btnPrimary} onClick={handleSubmit}>🚀 Tạo Ticket</button>
+      <button style={btnPrimary} onClick={handleSubmit} disabled={saving}>{saving ? "⏳ Đang lưu..." : "🚀 Tạo Ticket"}</button>
     </Card>
   );
 }
 
 // ==================== ADMIN CARD ====================
-function AdminCard({ staff, setStaff, pointConfig, setPointConfig, emails, setEmails, tickets, setTickets }) {
+function AdminCard({ staff, pointConfig, emails, addStaff, removeStaff, updateReportsTo, savePointConfig, saveEmails }) {
   const [showPoints, setShowPoints] = useState(false);
   const [showStaff, setShowStaff] = useState(false);
   const [showEmails, setShowEmails] = useState(false);
   const [newStaff, setNewStaff] = useState({ id: "", name: "", level: "NV", bu: "BU1", reportsTo: "" });
-  const [editLine, setEditLine] = useState(null);
   const [localPts, setLocalPts] = useState(pointConfig);
+  const [localEmails, setLocalEmails] = useState(emails);
+  const [savedMsg, setSavedMsg] = useState("");
 
-  const savePoints = () => { setPointConfig(localPts); };
+  const flash = (m) => { setSavedMsg(m); setTimeout(() => setSavedMsg(""), 2500); };
 
-  const addStaffMember = () => {
-    if (!newStaff.id || !newStaff.name) return;
-    if (staff.find(s => s.id === newStaff.id)) return;
-    setStaff(prev => [...prev, { ...newStaff }]);
-    setNewStaff({ id: "", name: "", level: "NV", bu: "BU1", reportsTo: "" });
+  const savePoints = async () => {
+    try { await savePointConfig(localPts); flash("✅ Đã lưu cấu hình điểm"); }
+    catch (e) { flash("⚠️ Lỗi: " + (e.message || String(e))); }
   };
 
-  const removeStaff = (id) => { setStaff(prev => prev.filter(s => s.id !== id)); };
+  const addStaffMember = async () => {
+    if (!newStaff.id || !newStaff.name) return;
+    if (staff.find(s => s.id === newStaff.id)) { flash("⚠️ Mã NV đã tồn tại"); return; }
+    try {
+      await addStaff({ ...newStaff });
+      setNewStaff({ id: "", name: "", level: "NV", bu: "BU1", reportsTo: "" });
+    } catch (e) { flash("⚠️ Lỗi thêm nhân sự: " + (e.message || String(e))); }
+  };
 
-  const updateReportsTo = (id, newReportsTo) => {
-    setStaff(prev => prev.map(s => s.id === id ? { ...s, reportsTo: newReportsTo } : s));
+  const saveEmailList = async () => {
+    try { await saveEmails(localEmails); flash("✅ Đã lưu email"); }
+    catch (e) { flash("⚠️ Lỗi lưu email: " + (e.message || String(e))); }
   };
 
   return (
     <>
+      {savedMsg && <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13, background: savedMsg.startsWith("✅") ? "rgba(0,212,170,0.15)" : "rgba(255,170,0,0.15)", color: savedMsg.startsWith("✅") ? "#00d4aa" : "#ffaa00" }}>{savedMsg}</div>}
       {/* Reporting Line */}
       <Card title="🔗 Line Báo Cáo" subtitle="Cập nhật quan hệ báo cáo trực tiếp (NV → TP → TPCC → GĐ)">
         <div style={{ overflowX: "auto" }}>
@@ -404,13 +396,16 @@ function AdminCard({ staff, setStaff, pointConfig, setPointConfig, emails, setEm
         <button style={btnSecondary} onClick={() => setShowEmails(!showEmails)}>{showEmails ? "▲ Thu gọn" : "▼ Cập nhật email"}</button>
         {showEmails && (
           <div style={{ marginTop: 16 }}>
-            {emails.map((em, i) => (
+            {localEmails.map((em, i) => (
               <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input style={{ ...inputStyle, flex: 1 }} value={em} onChange={e => { const copy = [...emails]; copy[i] = e.target.value; setEmails(copy); }} placeholder="email@greenfeed.com" />
-                <button onClick={() => setEmails(emails.filter((_, j) => j !== i))} style={{ background: "rgba(255,80,80,0.15)", color: "#ff5050", border: "none", borderRadius: 8, padding: "0 12px", cursor: "pointer" }}>✕</button>
+                <input style={{ ...inputStyle, flex: 1 }} value={em} onChange={e => { const copy = [...localEmails]; copy[i] = e.target.value; setLocalEmails(copy); }} placeholder="email@greenfeed.com" />
+                <button onClick={() => setLocalEmails(localEmails.filter((_, j) => j !== i))} style={{ background: "rgba(255,80,80,0.15)", color: "#ff5050", border: "none", borderRadius: 8, padding: "0 12px", cursor: "pointer" }}>✕</button>
               </div>
             ))}
-            <button style={btnSecondary} onClick={() => setEmails([...emails, ""])}>➕ Thêm email</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={btnSecondary} onClick={() => setLocalEmails([...localEmails, ""])}>➕ Thêm email</button>
+              <button style={btnPrimary} onClick={saveEmailList}>💾 Lưu email</button>
+            </div>
           </div>
         )}
       </Card>
@@ -419,19 +414,17 @@ function AdminCard({ staff, setStaff, pointConfig, setPointConfig, emails, setEm
 }
 
 // ==================== TICKET LIST ====================
-function TicketListCard({ tickets, staff, setTickets, pointConfig }) {
+function TicketListCard({ tickets, updateTicket, deleteTicket }) {
   const [filter, setFilter] = useState({ type: "", bu: "" });
   const filtered = tickets.filter(t => (!filter.type || t.type === filter.type) && (!filter.bu || t.bu === filter.bu));
 
-  const toggleUseful = (id) => {
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, useful: !t.useful } : t));
+  const toggleUseful = (t) => {
+    updateTicket(t.id, { useful: !t.useful });
   };
 
   const updateCustomPoints = (id, val) => {
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, customPoints: val === "" ? null : parseFloat(val) } : t));
+    updateTicket(id, { customPoints: val === "" ? null : parseFloat(val) });
   };
-
-  const deleteTicket = (id) => { setTickets(prev => prev.filter(t => t.id !== id)); };
 
   return (
     <Card title="🎫 Danh Sách Ticket" subtitle={`Tổng: ${tickets.length} ticket`}>
@@ -465,12 +458,12 @@ function TicketListCard({ tickets, staff, setTickets, pointConfig }) {
                   <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{new Date(t.date).toLocaleDateString("vi-VN")}</td>
                   <td style={{ padding: "8px 10px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.what}</td>
                   <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                    <button onClick={() => toggleUseful(t.id)} style={{ background: t.useful ? "#00d4aa" : "rgba(255,255,255,0.08)", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", color: t.useful ? "#0a0f1a" : "#7a8a9e", fontWeight: 700, fontSize: 11 }}>
+                    <button onClick={() => toggleUseful(t)} style={{ background: t.useful ? "#00d4aa" : "rgba(255,255,255,0.08)", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", color: t.useful ? "#0a0f1a" : "#7a8a9e", fontWeight: 700, fontSize: 11 }}>
                       {t.useful ? "✅ Có" : "—"}
                     </button>
                   </td>
                   <td style={{ padding: "8px 10px" }}>
-                    <input type="number" step="1" style={{ ...inputStyle, width: 70, padding: "4px 6px", textAlign: "center" }} value={t.customPoints ?? ""} onChange={e => updateCustomPoints(t.id, e.target.value)} placeholder="—" />
+                    <input type="number" step="1" style={{ ...inputStyle, width: 70, padding: "4px 6px", textAlign: "center" }} defaultValue={t.customPoints ?? ""} onBlur={e => { if ((e.target.value === "" ? null : parseFloat(e.target.value)) !== (t.customPoints ?? null)) updateCustomPoints(t.id, e.target.value); }} placeholder="—" />
                   </td>
                   <td style={{ padding: "8px 10px" }}>
                     <button onClick={() => deleteTicket(t.id)} style={{ background: "rgba(255,80,80,0.15)", color: "#ff5050", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 10 }}>🗑</button>
