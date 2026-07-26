@@ -16,9 +16,6 @@ dist-ssr
 .env
 !.env.example
 
-# Lịch sử/tài liệu tham khảo, không phải source code đang chạy
-_archive
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
