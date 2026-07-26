@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Biến môi trường chứa key thật — không commit
+.env
+!.env.example
+
 # Lịch sử/tài liệu tham khảo, không phải source code đang chạy
 _archive
 

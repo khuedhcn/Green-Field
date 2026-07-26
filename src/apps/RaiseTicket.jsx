@@ -17,6 +17,19 @@ function genTicketCode(type, bu, date) {
   return `${prefix}-${buCode}-${dd}${mm}${yy}`;
 }
 
+// Postgres có ràng buộc `code unique`, nên không thể đánh số theo tickets.length:
+// xoá 1 ticket là số thứ tự bị dùng lại -> insert lỗi trùng key. Lấy hậu tố lớn
+// nhất đang có của cùng prefix rồi +1 (đúng nghĩa "số thứ tự trong ngày/BU/loại").
+function nextTicketCode(type, bu, date, tickets) {
+  const prefix = genTicketCode(type, bu, date);
+  const max = tickets.reduce((m, t) => {
+    if (!t.code?.startsWith(prefix + "-")) return m;
+    const n = parseInt(t.code.slice(prefix.length + 1), 10);
+    return Number.isNaN(n) ? m : Math.max(m, n);
+  }, 0);
+  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
+}
+
 function calcPoints(ticket, staff, pointConfig) {
   const pts = [];
   const raiser = staff.find(s => s.id === ticket.raiserId);
@@ -220,13 +233,13 @@ function TicketInputCard({ staff, tickets, addTicket }) {
     if (!form.raiserId) { setMsg("⚠️ Vui lòng chọn người thực hiện"); return; }
     if (!form.what.trim()) { setMsg("⚠️ Vui lòng nhập nội dung WHAT"); return; }
     const raiser = staff.find(s => s.id === form.raiserId);
-    const code = genTicketCode(form.type, form.bu, new Date().toISOString());
+    const now = new Date().toISOString();
     const ticket = {
-      code: code + "-" + (tickets.length + 1).toString().padStart(3, "0"),
+      code: nextTicketCode(form.type, form.bu, now, tickets),
       type: form.type, bu: form.bu, raiserId: form.raiserId,
       raiserName: raiser?.name || "", raiserLevel: raiser?.level || "",
       what: form.what, why: form.why, where: form.where, when: form.when, how: form.how, note: form.note,
-      date: new Date().toISOString(), useful: false, customPoints: null
+      date: now, useful: false, customPoints: null
     };
     setSaving(true);
     try {

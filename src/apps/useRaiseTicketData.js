@@ -5,8 +5,8 @@
 // nên UI vẫn mượt và các component con gần như không phải đổi cách render.
 //
 // Chọn backend qua biến môi trường VITE_RAISE_TICKET_BACKEND:
-//   "flask"    -> backend Flask + SQLite tự viết trong /API (mặc định)
-//   "supabase" -> Supabase (bảng tickets/staff/point_config...)
+//   "supabase" -> Supabase (bảng tickets/staff/point_config...) — MẶC ĐỊNH
+//   "flask"    -> backend Flask + SQLite tự viết trong /API (chỉ để chạy offline)
 // Cả 2 module export cùng bộ hàm (fetchAll/insertTicket/...) nên hook và
 // RaiseTicket.jsx không cần biết đang dùng backend nào.
 // ============================================================
@@ -14,7 +14,7 @@ import { useState, useEffect, useCallback } from "react";
 import * as supabaseApi from "../lib/raiseTicketApi.js";
 import * as flaskApi from "../lib/flaskRaiseTicketApi.js";
 
-const BACKEND = (import.meta.env.VITE_RAISE_TICKET_BACKEND || "flask").toLowerCase();
+const BACKEND = (import.meta.env.VITE_RAISE_TICKET_BACKEND || "supabase").toLowerCase();
 const api = BACKEND === "supabase" ? supabaseApi : flaskApi;
 const DEFAULT_POINTS = api.DEFAULT_POINTS;
 // Flask không có khái niệm "thiếu env" như Supabase — server không chạy sẽ
