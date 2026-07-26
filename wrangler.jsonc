@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "greenfield",
+  "compatibility_date": "2026-07-24",
+
+  // Worker chỉ serve static asset, không có code Worker -> không cần "main".
+  "assets": {
+    "directory": "./dist",
+
+    // react-router dùng BrowserRouter: mọi path không khớp file nào phải trả về
+    // index.html (200) để router tự xử lý. Thiếu dòng này thì F5 trực tiếp
+    // /raise-ticket, /dashboard... sẽ ra 404.
+    "not_found_handling": "single-page-application"
+  }
+}

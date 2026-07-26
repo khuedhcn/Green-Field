@@ -1,3 +1,10 @@
+/* Tailwind được build vào bundle (trước đây load qua cdn.tailwindcss.com —
+   bản Play CDN chỉ dành cho dev). Đặt ở ĐẦU file để CSS custom bên dưới thắng
+   preflight khi cùng độ ưu tiên (vd .greenfield-nav-logout vs [type='button']). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 html { font-size: 18px; }
 body { margin: 0; font-family: Outfit, Arial, sans-serif; background: #07130f; color: #e8f5ee; }
 

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Wrangler state/cache khi chạy `wrangler dev`
+.wrangler
+
 # Biến môi trường chứa key thật — không commit
 .env
 !.env.example
