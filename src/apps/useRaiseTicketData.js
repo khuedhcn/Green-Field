@@ -3,21 +3,40 @@
 // Thay cho 4 cặp useState/useEffect + localStorage trước đây.
 // State cục bộ được cập nhật lạc quan (optimistic) sau khi ghi DB thành công,
 // nên UI vẫn mượt và các component con gần như không phải đổi cách render.
+//
+// Chọn backend qua biến môi trường VITE_RAISE_TICKET_BACKEND:
+//   "flask"    -> backend Flask + SQLite tự viết trong /API (mặc định)
+//   "supabase" -> Supabase (bảng tickets/staff/point_config...)
+// Cả 2 module export cùng bộ hàm (fetchAll/insertTicket/...) nên hook và
+// RaiseTicket.jsx không cần biết đang dùng backend nào.
 // ============================================================
 import { useState, useEffect, useCallback } from "react";
-import * as api from "../lib/raiseTicketApi.js";
-import { DEFAULT_POINTS } from "../lib/raiseTicketApi.js";
+import * as supabaseApi from "../lib/raiseTicketApi.js";
+import * as flaskApi from "../lib/flaskRaiseTicketApi.js";
+
+const BACKEND = (import.meta.env.VITE_RAISE_TICKET_BACKEND || "flask").toLowerCase();
+const api = BACKEND === "supabase" ? supabaseApi : flaskApi;
+const DEFAULT_POINTS = api.DEFAULT_POINTS;
+// Flask không có khái niệm "thiếu env" như Supabase — server không chạy sẽ
+// tự lộ ra qua lỗi fetch (error state), không cần cờ configured riêng.
+const isBackendConfigured = BACKEND === "supabase" ? supabaseApi.isSupabaseConfigured : true;
 
 export function useRaiseTicketData() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isBackendConfigured);
   const [error, setError] = useState(null);
   const [staff, setStaff] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [pointConfig, setPointConfig] = useState(DEFAULT_POINTS);
   const [emails, setEmails] = useState([""]);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
 
   useEffect(() => {
+    if (!isBackendConfigured) return;
     let alive = true;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const d = await api.fetchAll();
@@ -33,7 +52,7 @@ export function useRaiseTicketData() {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [refreshTick]);
 
   // ---- Tickets ----
   const addTicket = useCallback(async (ticket) => {
@@ -81,7 +100,9 @@ export function useRaiseTicketData() {
   }, []);
 
   return {
-    loading, error,
+    loading, error, refresh,
+    configured: isBackendConfigured,
+    backend: BACKEND,
     staff, tickets, pointConfig, emails,
     addTicket, updateTicket, deleteTicket,
     addStaff, removeStaff, updateReportsTo,

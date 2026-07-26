@@ -51,7 +51,7 @@ function calcPoints(ticket, staff, pointConfig) {
 export default function RaiseTicketApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const {
-    loading, error,
+    loading, error, refresh, configured, backend,
     staff, tickets, pointConfig, emails,
     addTicket, updateTicket, deleteTicket,
     addStaff, removeStaff, updateReportsTo,
@@ -97,6 +97,11 @@ export default function RaiseTicketApp() {
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#00d4aa", letterSpacing: 1 }}>RAISE TICKET</h1>
           <p style={{ margin: 0, fontSize: 11, color: "#7a8a9e", letterSpacing: 2, textTransform: "uppercase" }}>Green Feed Vietnam — QA Innovation Tracker</p>
         </div>
+        {configured && (
+          <button onClick={refresh} disabled={loading} style={{ marginLeft: "auto", ...btnSecondary }}>
+            {loading ? "⏳ Đang tải..." : "🔄 Làm mới"}
+          </button>
+        )}
       </header>
 
       <nav style={{ display: "flex", gap: 4, padding: "12px 24px", background: "rgba(13,33,55,0.6)", borderBottom: "1px solid rgba(0,212,170,0.15)", overflowX: "auto" }}>
@@ -111,9 +116,20 @@ export default function RaiseTicketApp() {
       </nav>
 
       <main style={{ padding: "20px 24px", maxWidth: 1400, margin: "0 auto" }}>
-        {loading && <div style={{ padding: 48, textAlign: "center", color: "#7a8a9e", fontSize: 14 }}>⏳ Đang tải dữ liệu từ Supabase...</div>}
-        {error && <div style={{ padding: "14px 18px", borderRadius: 10, background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.3)", color: "#ff8080", fontSize: 13 }}>⚠️ Lỗi kết nối Supabase: {error}<br /><span style={{ color: "#7a8a9e", fontSize: 12 }}>Kiểm tra .env.local và đã chạy migration chưa.</span></div>}
-        {!loading && !error && (
+        {!configured && <BackendNotConfiguredNotice backend={backend} />}
+        {configured && loading && <div style={{ padding: 48, textAlign: "center", color: "#7a8a9e", fontSize: 14 }}>⏳ Đang tải dữ liệu từ {backend === "supabase" ? "Supabase" : "backend"}...</div>}
+        {configured && error && (
+          <div style={{ padding: "14px 18px", borderRadius: 10, background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.3)", color: "#ff8080", fontSize: 13 }}>
+            ⚠️ Lỗi kết nối {backend === "supabase" ? "Supabase" : "backend"}: {error}<br />
+            <span style={{ color: "#7a8a9e", fontSize: 12 }}>
+              {backend === "supabase"
+                ? "Kiểm tra .env.local, đã chạy migration chưa, và RLS policy."
+                : "Kiểm tra backend Flask đã chạy chưa (python app.py trong thư mục /API, cổng 5000)."}
+            </span>
+            <div style={{ marginTop: 10 }}><button style={btnSecondary} onClick={refresh}>🔄 Thử lại</button></div>
+          </div>
+        )}
+        {configured && !loading && !error && (
           <>
             {activeTab === "input" && <TicketInputCard staff={staff} tickets={tickets} addTicket={addTicket} />}
             {activeTab === "admin" && <AdminCard staff={staff} pointConfig={pointConfig} emails={emails} addStaff={addStaff} removeStaff={removeStaff} updateReportsTo={updateReportsTo} savePointConfig={savePointConfig} saveEmails={saveEmails} />}
@@ -136,6 +152,41 @@ function Card({ title, subtitle, children, accent = "#00d4aa" }) {
       {subtitle && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#7a8a9e" }}>{subtitle}</p>}
       {children}
     </div>
+  );
+}
+
+// ==================== BACKEND CONFIG NOTICE ====================
+function BackendNotConfiguredNotice({ backend }) {
+  if (backend === "supabase") {
+    return (
+      <Card title="⚙️ Cần cấu hình Supabase" subtitle="Chưa tìm thấy VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY hợp lệ" accent="#ffaa00">
+        <div style={{ fontSize: 13, color: "#c8d6e5", lineHeight: 1.9 }}>
+          <p style={{ margin: "0 0 10px" }}>Màn hình Raise Ticket cần kết nối tới Supabase để hoạt động. Hãy thực hiện các bước sau rồi khởi động lại <code style={{ color: "#00d4aa" }}>npm run dev</code>:</p>
+          <ol style={{ margin: 0, paddingLeft: 20 }}>
+            <li>Sao chép <code style={{ color: "#00d4aa" }}>.env.example</code> thành <code style={{ color: "#00d4aa" }}>.env.local</code> ở thư mục gốc dự án (nếu chưa có).</li>
+            <li>Vào <strong>Supabase Dashboard → Project Settings → API</strong>, lấy <em>Project URL</em> và <em>anon public key</em>.</li>
+            <li>Điền vào <code style={{ color: "#00d4aa" }}>.env.local</code>:
+              <pre style={{ background: "rgba(0,0,0,0.35)", padding: "10px 14px", borderRadius: 8, marginTop: 8, fontSize: 12, overflowX: "auto" }}>
+{`VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co\nVITE_SUPABASE_ANON_KEY=eyJhbGciOi...`}
+              </pre>
+            </li>
+            <li>Đảm bảo đã chạy migration <code style={{ color: "#00d4aa" }}>supabase/migrations/0001_raise_ticket.sql</code> trên project đó.</li>
+            <li>Dừng và chạy lại <code style={{ color: "#00d4aa" }}>npm run dev</code> (Vite chỉ đọc biến môi trường khi khởi động).</li>
+          </ol>
+        </div>
+      </Card>
+    );
+  }
+  return (
+    <Card title="⚙️ Cần chạy backend" subtitle="Backend Flask tự viết (/API) chưa sẵn sàng" accent="#ffaa00">
+      <div style={{ fontSize: 13, color: "#c8d6e5", lineHeight: 1.9 }}>
+        <p style={{ margin: "0 0 10px" }}>Màn hình Raise Ticket đang dùng backend tự viết (Flask + SQLite). Chạy các lệnh sau ở thư mục <code style={{ color: "#00d4aa" }}>/API</code>:</p>
+        <pre style={{ background: "rgba(0,0,0,0.35)", padding: "10px 14px", borderRadius: 8, fontSize: 12, overflowX: "auto" }}>
+{`cd API\npip install -r requirements.txt\npython app.py`}
+        </pre>
+        <p style={{ margin: "10px 0 0" }}>Backend chạy ở <code style={{ color: "#00d4aa" }}>http://localhost:5000</code>. Sau đó chạy <code style={{ color: "#00d4aa" }}>npm run dev</code> ở thư mục gốc rồi mở lại trang này.</p>
+      </div>
+    </Card>
   );
 }
 

@@ -32,7 +32,11 @@ body { margin: 0; font-family: Outfit, Arial, sans-serif; background: #07130f; c
 .login-card label { display: block; text-align: left; margin: 14px 0 6px; font-size: 0.85rem; color: #86efac; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .login-card input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(134,239,172,.25); background: rgba(255,255,255,.06); color: #e8f5ee; font-size: 1rem; box-sizing: border-box; }
 .login-card button { margin-top: 24px; width: 100%; padding: 12px; border-radius: 999px; border: none; background: #22c55e; color: #07130f; font-weight: 800; font-size: 1rem; cursor: pointer; }
-.login-card button:hover { background: #4ade80; }
+.login-card button:hover:not(:disabled) { background: #4ade80; }
+.login-card button:disabled, .login-card input:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-error { margin-bottom: 18px; padding: 10px 14px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(252, 165, 165, 0.4); color: #fecaca; font-size: 0.9rem; text-align: left; }
+.greenfield-nav-logout { font: inherit; cursor: pointer; color: #fecaca; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(252, 165, 165, 0.35); border-radius: 999px; padding: 10px 15px; font-weight: 700; }
+.greenfield-nav-logout:hover { background: rgba(239, 68, 68, 0.22); color: #fff; }
 
 @media (max-width: 800px) {
   .greenfield-header { align-items: flex-start; flex-direction: column; padding: 18px 22px; }

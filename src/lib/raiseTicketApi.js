@@ -4,7 +4,9 @@
 // (camelCase, staff.id, where/when, date, customPoints) để không phải sửa
 // logic calcPoints/dashboard. Việc map sang cột snake_case của DB nằm gọn ở đây.
 // ============================================================
-import { supabase } from "./supabaseClient.js";
+import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
+
+export { isSupabaseConfigured };
 
 // Fallback dùng trước khi tải xong config từ DB (khớp seed trong migration).
 export const DEFAULT_POINTS = {
