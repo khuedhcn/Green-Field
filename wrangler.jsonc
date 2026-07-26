@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "greenfield",
+
+  // Phải khớp CHÍNH XÁC tên Worker đã có trên dashboard, nếu không `wrangler
+  // deploy` sẽ tạo thêm một Worker mới thay vì cập nhật cái đang dùng.
+  "name": "funix-khb-greenfield",
+  "account_id": "3e5797088897767fe1ae5e6fcb6dff08",
   "compatibility_date": "2026-07-24",
 
   // Worker chỉ serve static asset, không có code Worker -> không cần "main".
@@ -12,4 +16,12 @@
     // /raise-ticket, /dashboard... sẽ ra 404.
     "not_found_handling": "single-page-application"
   }
+
+  // LƯU Ý — không khai báo "vars" cho VITE_SUPABASE_*:
+  // Vite nhúng (inline) mọi biến VITE_* thẳng vào file JS lúc BUILD. Site này
+  // không có code Worker nào đọc `env`, nên đặt vars/secret ở đây hoặc trên
+  // dashboard sẽ KHÔNG có tác dụng gì. Cấu hình Supabase phải có mặt lúc build:
+  //   - build tại máy  -> đọc từ file .env ở gốc repo (đang dùng cách này)
+  //   - build trên CI  -> set biến ở Worker > Settings > Build > Variables
+  // Xem thêm .env.example.
 }
