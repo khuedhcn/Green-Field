@@ -114,3 +114,76 @@ Hiện chưa làm được, vì giá trị đã nằm cứng trong bundle. Muố
 sang cấu hình runtime: thêm code Worker serve `/config.json` từ `env`, và sửa
 `supabaseClient.js` thành khởi tạo async. Đây là thay đổi kiến trúc, chỉ nên làm
 nếu thật cần dùng **một** bundle cho nhiều môi trường.
+
+---
+
+## 4. Chống Supabase Free plan tự pause project
+
+Org `Training` đang ở plan **free**. Theo
+[docs Supabase](https://supabase.com/docs/guides/platform/free-project-pausing):
+
+> A Free plan project is considered inactive if it does not receive sufficient
+> **user database activity** over the past week... Typically **a few user requests
+> to the database each day** over the previous week is enough to keep the project
+> from being paused.
+
+Nên "ping một URL nào đó" là **không đủ** — phải chạm thật vào Postgres.
+[Migration 0002](supabase/migrations/0002_keepalive.sql) đã tạo:
+
+- bảng `public.keepalive` — 1 dòng, lưu `last_ping_at` / `ping_count` / `last_source`
+- function `public.ping(source)` — `security definer`, cron gọi qua
+  `POST /rest/v1/rpc/ping`. Đây là một UPDATE thật nên chắc chắn tính là DB activity.
+
+RLS: ai cũng đọc được bảng (để tự kiểm tra), nhưng **không có** policy
+INSERT/UPDATE/DELETE — ghi chỉ đi qua đúng function trên. Đã test: anon gọi
+PATCH/DELETE trực tiếp đổi 0 dòng.
+
+### Cách A — Cloudflare Worker cron (khuyến nghị)
+
+Nằm ở [keepalive/](keepalive/), **tách riêng** khỏi Worker serve site: nó chết thì
+site vẫn chạy, và site vẫn là static asset thuần.
+
+```bash
+npm run keepalive:deploy     # deploy (cần quyền Cloudflare, xem mục 1)
+npm run keepalive:dev        # test tại chỗ
+```
+
+Lịch: `0 */8 * * *` — 3 lần/ngày (00:00, 08:00, 16:00 UTC). Chạy 3 lần để lỡ
+1 lần fail vẫn còn 2 lần. Ping fail thì Worker `throw`, lần chạy hiện đỏ trong
+*Worker → Logs* (đã bật `observability`).
+
+Kiểm tra bất cứ lúc nào bằng cách mở URL của Worker — nó trả JSON:
+
+```json
+{ "ok": true, "last_ping_at": "...", "hours_since_last_ping": 0.02,
+  "ping_count": 3, "last_source": "cf-cron" }
+```
+
+`ok: false` khi lần ping cuối đã quá 48 giờ.
+
+Khác với Worker serve site: Worker này **đọc `env` lúc runtime**, nên `vars` khai
+trong [keepalive/wrangler.jsonc](keepalive/wrangler.jsonc) có tác dụng thật.
+
+### Cách B — GitHub Actions (không cần quyền Cloudflare)
+
+[.github/workflows/supabase-keepalive.yml](.github/workflows/supabase-keepalive.yml).
+Cần set 2 repo variable ở *Settings → Secrets and variables → Actions → tab
+Variables*: `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
+
+⚠️ GitHub **tự tắt** scheduled workflow nếu repo không có commit nào trong 60
+ngày — đúng kiểu repo dev để lâu. Nếu không chắc sẽ commit đều thì dùng cách A.
+
+Chọn **một** trong hai là đủ. Chạy cả hai cũng không sao, chỉ là ping thừa.
+
+### Kiểm tra bằng SQL
+
+```sql
+select * from public.keepalive;
+```
+
+### Cảnh báo
+
+Đây là giữ cho project khỏi bị pause, **không phải** cách để dùng free plan cho
+production. Muốn chắc chắn không bao giờ bị pause thì nâng lên Pro — dự án đã
+chạy thật thì 25$/tháng rẻ hơn nhiều so với một buổi sáng database offline.
+Project bị pause vẫn restore được trong vòng 1 năm.

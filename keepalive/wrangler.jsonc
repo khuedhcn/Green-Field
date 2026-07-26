@@ -1,0 +1,29 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "funix-khb-greenfield-keepalive",
+
+  // Worker này chỉ nói chuyện với Supabase nên đặt ở account nào cũng được.
+  // Đang để cùng account với site cho dễ quản lý.
+  "account_id": "3e5797088897767fe1ae5e6fcb6dff08",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-24",
+
+  // 3 lần/ngày (00:00, 08:00, 16:00 UTC). Docs Supabase: "a few user requests
+  // to the database each day" là đủ. Chạy 3 lần để lỡ 1 lần fail vẫn còn 2 lần.
+  "triggers": {
+    "crons": ["0 */8 * * *"]
+  },
+
+  // Khác với Worker serve site: ở đây code Worker ĐỌC env lúc runtime, nên khai
+  // vars tại đây là có tác dụng thật. Anon key vốn công khai trong browser nên
+  // để vars (không cần secret).
+  "vars": {
+    "SUPABASE_URL": "https://eapjscifxxdsdilujwhj.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_iFvdO8uxD8VBI9IOLTTZFw_KFWnNOa4"
+  },
+
+  // Bật log để xem lịch sử cron trong dashboard: Worker > Logs.
+  "observability": {
+    "enabled": true
+  }
+}

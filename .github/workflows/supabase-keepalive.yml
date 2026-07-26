@@ -1,0 +1,46 @@
+# Phương án THAY THẾ cho Worker cron trong /keepalive — chọn 1 trong 2 là đủ,
+# chạy cả hai cũng không sao (chỉ là ping thừa).
+#
+# Ưu điểm: không cần quyền Cloudflare, bật là chạy.
+# Nhược điểm: GitHub TỰ TẮT scheduled workflow nếu repo không có commit nào
+# trong 60 ngày — đúng kiểu repo dev để lâu không ai đụng. Nếu anh không chắc
+# sẽ commit đều thì dùng Worker cron ở /keepalive đáng tin hơn.
+#
+# Cần set trước 2 repo variable (Settings > Secrets and variables > Actions >
+# tab "Variables"): SUPABASE_URL, SUPABASE_ANON_KEY.
+# Dùng Variables chứ không phải Secrets vì anon key vốn đã công khai trong
+# bundle frontend — để Secrets chỉ làm log khó đọc, không tăng bảo mật.
+
+name: Supabase keepalive
+
+on:
+  schedule:
+    # 3 lần/ngày. Đặt lệch phút để tránh giờ cao điểm của GitHub (lịch chạy là
+    # best-effort, có thể trễ vài phút — không sao vì hạn là 7 ngày).
+    - cron: "23 1,9,17 * * *"
+  workflow_dispatch: # cho phép bấm chạy tay trong tab Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::Thiếu repo variable SUPABASE_URL hoặc SUPABASE_ANON_KEY."
+            exit 1
+          fi
+
+          # --fail-with-body: HTTP 4xx/5xx -> exit code khác 0 nhưng vẫn in body,
+          # để job đỏ và đọc được lý do thay vì im lặng thành công.
+          curl -sS --fail-with-body \
+            -X POST "${SUPABASE_URL%/}/rest/v1/rpc/ping" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"github-actions"}' \
+            -w '\nHTTP %{http_code}\n'
